@@ -1,0 +1,408 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>规范意见智能查询</title>
+  <style>
+    :root {
+      --bg: #f4f7ff;
+      --card: #ffffff;
+      --line: #dfe6f3;
+      --text: #1f2a44;
+      --sub: #5b6785;
+      --primary: #3b6cff;
+      --primary-soft: #eaf0ff;
+      --ok: #16a34a;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Microsoft YaHei", Arial, sans-serif;
+      background: radial-gradient(circle at 10% 20%, #eef3ff 0%, #f8faff 38%, #f4f7ff 100%);
+      color: var(--text);
+    }
+    .page {
+      max-width: 1500px;
+      margin: 22px auto;
+      padding: 0 18px;
+    }
+    .panel {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      box-shadow: 0 8px 24px rgba(39, 79, 186, 0.08);
+      overflow: hidden;
+    }
+    .panel-header {
+      padding: 18px 20px 10px;
+      background: linear-gradient(90deg, #f5f8ff, #ffffff 35%);
+      border-bottom: 1px solid var(--line);
+    }
+    h2 { margin: 0; font-size: 22px; }
+    .desc { margin: 8px 0 0; color: var(--sub); font-size: 13px; }
+    .toolbar {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(180px, 1fr));
+      gap: 12px;
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--line);
+      background: #fbfcff;
+    }
+    .field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+    .field label { font-size: 13px; color: var(--sub); }
+    select, input, button {
+      height: 38px;
+      border: 1px solid #ccd7ef;
+      border-radius: 9px;
+      padding: 0 10px;
+      font-size: 14px;
+      color: var(--text);
+      background: #fff;
+    }
+    input:focus, select:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(59, 108, 255, 0.12);
+    }
+    button {
+      border: none;
+      background: linear-gradient(90deg, var(--primary), #5681ff);
+      color: #fff;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    button:disabled { opacity: 0.55; cursor: not-allowed; }
+    .status {
+      margin: 12px 20px;
+      padding: 10px 12px;
+      border-radius: 9px;
+      background: var(--primary-soft);
+      color: #2f4fa8;
+      font-size: 13px;
+    }
+    .table-wrap {
+      max-height: 72vh;
+      overflow: auto;
+      border-top: 1px solid var(--line);
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td {
+      border-bottom: 1px solid #edf1fa;
+      padding: 9px 8px;
+      text-align: left;
+      vertical-align: top;
+      line-height: 1.5;
+    }
+    th {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      background: #f4f7ff;
+      color: #33436d;
+      font-weight: 700;
+    }
+    tbody tr:nth-child(odd) { background: #fcfdff; }
+    tbody tr:hover { background: #f6f9ff; }
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 12px;
+      background: #ebf8f0;
+      color: var(--ok);
+      border: 1px solid #c9ebd6;
+    }
+    .tpl { color: #31456e; }
+    @media (max-width: 1200px) {
+      .toolbar { grid-template-columns: repeat(2, minmax(220px, 1fr)); }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="panel">
+      <div class="panel-header">
+        <h2>规范意见智能查询</h2>
+        <p class="desc">支持1级/2级关键词筛选、3级关键词自动搜索，结果按频率由高到低排序</p>
+      </div>
+
+      <div class="toolbar">
+        <div class="field">
+          <label for="dbFileInput">数据库文件（可选）</label>
+          <input id="dbFileInput" type="file" accept=".db,.sqlite,.sqlite3">
+        </div>
+        <div class="field">
+          <label for="keyword1">1级关键词（去重）</label>
+          <select id="keyword1" disabled>
+            <option value="">全部</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="keyword2">2级关键词（去重）</label>
+          <select id="keyword2" disabled>
+            <option value="">全部</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="keyword3Search">3级关键词自动搜索</label>
+          <input id="keyword3Search" list="keyword3List" placeholder="输入3级关键词自动匹配" disabled>
+          <datalist id="keyword3List"></datalist>
+        </div>
+        <div class="field">
+          <label>&nbsp;</label>
+          <button id="loadBtn">加载数据库</button>
+        </div>
+      </div>
+
+      <div class="status" id="status">待加载数据库</div>
+
+      <div class="table-wrap">
+        <table id="resultTable">
+          <thead>
+            <tr>
+              <th>频率</th>
+              <th>执行情况</th>
+              <th>1级关键词</th>
+              <th>2级关键词</th>
+              <th>规范号</th>
+              <th>规范名称</th>
+              <th>条文号</th>
+              <th>典型表述句式</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/sql-wasm.min.js"></script>
+  <script>
+    const loadBtn = document.getElementById('loadBtn');
+    const fileInput = document.getElementById('dbFileInput');
+    const keyword1 = document.getElementById('keyword1');
+    const keyword2 = document.getElementById('keyword2');
+    const keyword3Search = document.getElementById('keyword3Search');
+    const keyword3List = document.getElementById('keyword3List');
+    const statusEl = document.getElementById('status');
+    const tbody = document.querySelector('#resultTable tbody');
+
+    let db = null;
+    let allRows = [];
+    let thirdCols = [];
+    let cols = {};
+
+    function setStatus(text) {
+      statusEl.textContent = text;
+    }
+
+    function esc(value) {
+      return String(value ?? '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+    }
+
+    function toRows(res) {
+      if (!res || !res.length) return [];
+      const cs = res[0].columns;
+      return res[0].values.map(v => Object.fromEntries(cs.map((c, i) => [c, v[i]])));
+    }
+
+    function query(sql, params = []) {
+      return toRows(db.exec(sql, params));
+    }
+
+    function quoteIdent(name) {
+      return `"${String(name ?? '').replaceAll('"', '""')}"`;
+    }
+
+    function norm(v) {
+      return String(v ?? '')
+        .replace(/[\s\u3000]/g, '')
+        .replace(/[，,；;。]/g, '')
+        .trim()
+        .toLowerCase();
+    }
+
+    function findCol(candidates) {
+      const all = allRows.length ? Object.keys(allRows[0]) : [];
+      for (const c of candidates) {
+        if (all.includes(c)) return c;
+      }
+      return '';
+    }
+
+    function findStatusCol() {
+      const all = allRows.length ? Object.keys(allRows[0]) : [];
+      const hit = all.find(c => /执\s*行情况/.test(c));
+      return hit || '';
+    }
+
+    function loadRowsFromDb() {
+      const tables = query(`SELECT name FROM sqlite_master WHERE type='table' ORDER BY name`)
+        .map(r => r.name)
+        .filter(Boolean);
+      const preferred = ['records', '规范标准'];
+      const candidates = [...new Set([...preferred, ...tables])];
+      for (const tableName of candidates) {
+        try {
+          const rows = query(`SELECT * FROM ${quoteIdent(tableName)}`);
+          if (rows.length) return { rows, tableName };
+        } catch (_) {}
+      }
+      throw new Error('数据库中未找到可用数据表');
+    }
+
+    function fillSelectWithDedup(selectEl, values) {
+      const old = selectEl.value;
+      const map = new Map();
+      values.forEach(v => {
+        const raw = String(v ?? '').trim();
+        if (!raw) return;
+        const k = norm(raw);
+        if (!k) return;
+        if (!map.has(k)) map.set(k, raw);
+      });
+      const options = [...map.entries()].sort((a, b) => a[1].localeCompare(b[1], 'zh-CN'));
+      selectEl.innerHTML = '<option value="">全部</option>' + options.map(([k, label]) => `<option value="${esc(k)}">${esc(label)}</option>`).join('');
+      if ([...map.keys()].includes(old)) selectEl.value = old;
+    }
+
+    function buildKeyword1() {
+      fillSelectWithDedup(keyword1, allRows.map(r => r[cols.k1]));
+    }
+
+    function buildKeyword2() {
+      const k1 = keyword1.value;
+      const subset = !k1 ? allRows : allRows.filter(r => norm(r[cols.k1]) === k1);
+      fillSelectWithDedup(keyword2, subset.map(r => r[cols.k2]));
+    }
+
+    function buildThirdAutoList() {
+      const set = new Set();
+      allRows.forEach(row => {
+        thirdCols.forEach(c => {
+          const val = String(row[c] ?? '').trim();
+          if (val) set.add(val);
+        });
+      });
+      const items = [...set].sort((a, b) => a.localeCompare(b, 'zh-CN'));
+      keyword3List.innerHTML = items.map(v => `<option value="${esc(v)}"></option>`).join('');
+    }
+
+    function parseFreq(v) {
+      const n = Number(v);
+      return Number.isFinite(n) ? n : 0;
+    }
+
+    function renderTable() {
+      const k1 = keyword1.value;
+      const k2 = keyword2.value;
+      const k3 = String(keyword3Search.value ?? '').trim().toLowerCase();
+
+      let rows = allRows.filter(r => {
+        if (k1 && norm(r[cols.k1]) !== k1) return false;
+        if (k2 && norm(r[cols.k2]) !== k2) return false;
+        if (k3) {
+          const ok = thirdCols.some(c => String(r[c] ?? '').toLowerCase().includes(k3));
+          if (!ok) return false;
+        }
+        return true;
+      });
+
+      rows.sort((a, b) => {
+        const d = parseFreq(b[cols.freq]) - parseFreq(a[cols.freq]);
+        if (d !== 0) return d;
+        return parseFreq(a[cols.order]) - parseFreq(b[cols.order]);
+      });
+
+      tbody.innerHTML = rows.map(r => `
+        <tr>
+          <td>${esc(r[cols.freq])}</td>
+          <td><span class="badge">${esc(cols.status ? r[cols.status] : '—')}</span></td>
+          <td>${esc(r[cols.k1])}</td>
+          <td>${esc(r[cols.k2])}</td>
+          <td>${esc(r[cols.norm])}</td>
+          <td>${esc(r[cols.name])}</td>
+          <td>${esc(r[cols.clause])}</td>
+          <td class="tpl">${esc(r[cols.template])}</td>
+        </tr>
+      `).join('');
+
+      setStatus(`当前结果：${rows.length} 条（按频率从高到低排序）`);
+    }
+
+    async function readDbBuffer() {
+      if (fileInput.files && fileInput.files[0]) {
+        return new Uint8Array(await fileInput.files[0].arrayBuffer());
+      }
+      const defaults = [
+        './规范标准数据库.db',
+        './强条、强标意见汇总.db'
+      ];
+      for (const dbPath of defaults) {
+        try {
+          const resp = await fetch(dbPath);
+          if (resp.ok) return new Uint8Array(await resp.arrayBuffer());
+        } catch (_) {}
+      }
+      throw new Error('未找到默认数据库文件，请手动选择本地 .db 文件');
+    }
+
+    function resolveColumns() {
+      cols = {
+        order: findCol(['序号']),
+        freq: findCol(['频率']),
+        k1: findCol(['1级关键词', '_1级关键词']),
+        k2: findCol(['2级关键词', '_2级关键词']),
+        norm: findCol(['规范号']),
+        name: findCol(['规范名称', '规 范名称']),
+        clause: findCol(['条文号']),
+        content: findCol(['意见内容']),
+        template: findCol(['典型表述句式']),
+        status: findStatusCol()
+      };
+      thirdCols = Object.keys(allRows[0] || {}).filter(k => /^_?3级关键词/.test(k));
+    }
+
+    async function init() {
+      loadBtn.disabled = true;
+      setStatus('正在加载数据库...');
+      try {
+        const SQL = await initSqlJs({
+          locateFile: file => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/${file}`
+        });
+        const data = await readDbBuffer();
+        db = new SQL.Database(data);
+        const loaded = loadRowsFromDb();
+        allRows = loaded.rows;
+        resolveColumns();
+        keyword1.disabled = false;
+        keyword2.disabled = false;
+        keyword3Search.disabled = false;
+        buildKeyword1();
+        buildKeyword2();
+        buildThirdAutoList();
+        renderTable();
+        setStatus(`加载成功：${allRows.length} 条（数据表：${loaded.tableName}）`);
+      } catch (e) {
+        setStatus(`加载失败：${e.message}（若直接双击打开HTML，请先手动选择数据库文件）`);
+      } finally {
+        loadBtn.disabled = false;
+      }
+    }
+
+    keyword1.addEventListener('change', () => {
+      buildKeyword2();
+      renderTable();
+    });
+    keyword2.addEventListener('change', renderTable);
+    keyword3Search.addEventListener('input', renderTable);
+    loadBtn.addEventListener('click', init);
+  </script>
+</body>
+</html>
